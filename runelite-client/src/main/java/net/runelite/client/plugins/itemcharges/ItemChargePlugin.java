@@ -46,12 +46,16 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class ItemChargePlugin extends Plugin
 {
+	private static final Pattern CHEMISTRY_BREAK_PATTERN = Pattern.compile(
+		"Your amulet of chemistry helps you create a 4-dose potion\\..*It then crumbles to dust\\.");
 	private static final Pattern DODGY_CHECK_PATTERN = Pattern.compile(
 		"Your dodgy necklace has (\\d+) charges? left\\.");
 	private static final Pattern DODGY_PROTECT_PATTERN = Pattern.compile(
 		"Your dodgy necklace protects you\\..*It has (\\d+) charges? left\\.");
 	private static final Pattern DODGY_BREAK_PATTERN = Pattern.compile(
 		"Your dodgy necklace protects you\\..*It then crumbles to dust\\.");
+	private static final Pattern RECOIL_BREAK_PATTERN = Pattern.compile(
+		"Your Ring of Recoil has shattered.");
 
 	private static final int MAX_DODGY_CHARGES = 10;
 
@@ -93,32 +97,56 @@ public class ItemChargePlugin extends Plugin
 	public void onChatMessage(ChatMessage event)
 	{
 		String message = event.getMessage();
+		if (event.getType() == ChatMessageType.SERVER || event.getType() == ChatMessageType.FILTERED)
+		{
+			checkRingOfRecoil(message);
+			checkAmuletOfChemistry(message);
+			checkDodgyNecklace(message);
+		}
+	}
+
+	private void checkAmuletOfChemistry(String message)
+	{
+		Matcher chemistryBreakMatcher = CHEMISTRY_BREAK_PATTERN.matcher(message);
+		if (chemistryBreakMatcher.find())
+		{
+			if (config.dodgyNotification())
+			{
+				notifier.notify("Your amulet of chemistry has crumbled to dust.");
+			}
+		}
+	}
+	private void checkDodgyNecklace(String message)
+	{
 		Matcher dodgyCheckMatcher = DODGY_CHECK_PATTERN.matcher(message);
 		Matcher dodgyProtectMatcher = DODGY_PROTECT_PATTERN.matcher(message);
 		Matcher dodgyBreakMatcher = DODGY_BREAK_PATTERN.matcher(message);
-		if (event.getType() == ChatMessageType.SERVER || event.getType() == ChatMessageType.FILTERED)
+		if (dodgyBreakMatcher.find())
 		{
-			if (config.recoilNotification() && message.contains("<col=7f007f>Your Ring of Recoil has shattered.</col>"))
+			if (config.dodgyNotification())
 			{
-				notifier.notify("Your Ring of Recoil has shattered");
+				notifier.notify("Your dodgy necklace has crumbled to dust.");
 			}
-			else if (dodgyBreakMatcher.find())
-			{
-				if (config.dodgyNotification())
-				{
-					notifier.notify("Your dodgy necklace has crumbled to dust.");
-				}
 
-				setDodgyCharges(MAX_DODGY_CHARGES);
-			}
-			else if (dodgyCheckMatcher.find())
-			{
-				setDodgyCharges(Integer.parseInt(dodgyCheckMatcher.group(1)));
-			}
-			else if (dodgyProtectMatcher.find())
-			{
-				setDodgyCharges(Integer.parseInt(dodgyProtectMatcher.group(1)));
-			}
+			setDodgyCharges(MAX_DODGY_CHARGES);
+			return;
+		}
+		if (dodgyCheckMatcher.find())
+		{
+			setDodgyCharges(Integer.parseInt(dodgyCheckMatcher.group(1)));
+			return;
+		}
+		if (dodgyProtectMatcher.find())
+		{
+			setDodgyCharges(Integer.parseInt(dodgyProtectMatcher.group(1)));
+		}
+	}
+	private void checkRingOfRecoil(String message)
+	{
+		Matcher recoilBreakMatcher = RECOIL_BREAK_PATTERN.matcher(message);
+		if (config.recoilNotification() && recoilBreakMatcher.find())
+		{
+			notifier.notify("Your ring of recoil has shattered");
 		}
 	}
 
